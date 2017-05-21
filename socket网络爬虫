@@ -1,0 +1,308 @@
+// netbug.cpp : 定义控制台应用程序的入口点。
+//
+
+#include "stdafx.h"
+#include<iostream>
+#include <cstdio>
+#include<string>
+#include<fstream>//文件操作
+#include<cstring>
+#include<vector>//容器
+#include<map>//
+#include <algorithm>   
+#include<queue>
+#include <winsock2.h>   
+#include<regex>
+using namespace std;
+
+void bfs(string beginUrl);
+bool analyUrl(char * url);
+void getConnect();
+void putImagetoSet();
+void Getcom(string &allHtml);
+void GetImage(string &allHtml);
+void SaveImage(string imageUrl);
+
+
+#pragma comment(lib, "ws2_32.lib")//添加lib库
+SOCKET sock;
+char host[500];//主机名
+char otherPath[500];//主机外的其他信息
+string allHtml;
+vector <string> comUrl;//用来保存当前也页面的其他URL连接
+vector <string> photoUrl;   //用来存储图片的链接
+map <string,int> mp;//映射，一个人对应一个编号,一个网页对应一个id保证不重复
+int _tmain(int argc,_TCHAR* argv[])
+{
+	/*
+	1.界面
+	2.广度优先搜索
+	3.获取服务器的主机名
+	4.下载图片
+	5.正则表达式
+	6.下载
+	7继续广度优先
+	*/
+	//1.界面的处理
+	int times=0;
+	while((times++)<=50){
+		system("color B");
+		cout<<"******************\n";
+		cout<<"*  百度搜索引擎  *\n";
+		cout<<"******************\n";
+		system("CLS");
+		_sleep(10);
+		
+	}
+	    cout<<"******************\n";
+		cout<<"*  百度搜索引擎  *\n";
+		cout<<"******************\n";
+
+		string myurl;
+		cout<<"请输入连接：\n";
+		cin>>myurl;
+		cout<<myurl<<endl;
+	    CreateDirectory(L"./img",0);//创建目录
+		//开始广度搜索
+		bfs(myurl);
+	return 0;
+}
+
+
+//广度搜索
+void bfs(string beginUrl){
+	//保存所有的URL的信息,queue
+	queue<string> queue_url;
+	queue_url.push(beginUrl);
+	while(!queue_url.empty()){
+	  //开始搜索保存连接，然后剔除队列
+		string cur_url=queue_url.front();
+		queue_url.pop();//剔除防止再次进入
+		mp[cur_url]++;//例如mp[baidu.com]++就是把百度的编号为1
+		//备份
+		char tmp[800];
+		strcpy(tmp,cur_url.c_str());
+		//解析URL,剥离主机名
+		analyUrl(tmp);
+
+		//由主机名得到服务器地址，然后拿到服务器里的图片
+		getConnect();
+
+		//url页面下载下来解析
+		putImagetoSet();
+
+		//迭代器(计数器)
+		vector<string>::iterator ita = photoUrl.begin();
+		for (ita; ita != photoUrl.end(); ++ita)
+		{
+			//把每个图片保存在本地
+			SaveImage(*ita);
+		}
+		photoUrl.clear();
+		vector <string>::iterator it = comUrl.begin();
+		for (it; it != comUrl.end(); ++it)
+		{
+			if (mp[*it] == 0)
+				queue_url.push(*it);
+		}
+		comUrl.clear();
+
+
+	
+     }
+	
+
+}
+
+bool analyUrl(char *url){
+
+	//首先判断url是否正确
+	//连接格式：http://
+	char *pos=strstr(url,"http://");//查找url中是否有http://
+	if(pos==NULL){
+		return false;
+	}else{
+		pos+=7;//剔除http://
+	} 
+	sscanf(pos,"%[^/]%s",host,otherPath);//保存主机名
+	cout<<"host:"<<host<<"\n otherPath:"<<otherPath<<endl;
+
+	return true;
+}
+
+//sockt网络编程
+void getConnect(){
+	
+	//1，加载套接字lib库,在最上面添加lib
+	//异步通信
+	WSADATA wd;
+	//初始化lib库文件
+	
+	if( WSAStartup(MAKEWORD(2,2), &wd) != 0 ){
+        return;
+    }
+
+	/*2，创建套接字，1.即协议域，又称为协议族
+	2.socket类型，SOCK_STREAM、SOCK_DGRAM、SOCK_RAW、SOCK_PACKET、SOCK_SEQPACKET等等
+	3.协议有，IPPROTO_TCP、IPPTOTO_UDP、IPPROTO_SCTP、IPPROTO_TIPC
+	*/
+
+	sock = socket(AF_INET,SOCK_STREAM,0);//类似linux中open函数得到文件的文件描述符，利用socket函数得到socket描述符
+
+	if(sock == INVALID_SOCKET){
+		cout<<"建立socket失败"<<WSAGetLastError()<<endl;
+		return ;
+	}
+	
+	sockaddr_in saddr={ AF_INET };// 配置监听地址和端口
+	saddr.sin_port=htons(80);   //端口号,http--80,ftp--21
+	//3，绑定套接字到一个IP地址和一个端口上(bind())
+	int num = bind(sock,(sockaddr *)&saddr,sizeof(saddr));
+
+	if(num == SOCKET_ERROR){
+		cout<<"绑定bind（）失败"<<WSAGetLastError()<<endl;
+		return ;
+	}
+	//4,根据主机名得到主机的详细信息，得到ip等
+	struct hostent *p=gethostbyname(host);
+	if(p == NULL){
+	
+		cout<<"主机无法解析出ip!"<<WSAGetLastError()<<endl;
+		return ;
+	
+	}
+	//主机字节顺序表达的16位数。
+	
+	memcpy(&saddr.sin_addr,p->h_addr,4);
+
+	//5，开始请求连接
+	num = connect(sock,(sockaddr *)&saddr,sizeof(saddr));
+	if(num == SOCKET_ERROR){
+	cout<<"connet（）连接失败"<<WSAGetLastError()<<endl;
+	return ;
+	}
+	//6，发送请求，向服务器发送GET请求，模拟浏览器的请求 把页面里面所有信息全部下载后解析
+	string reqInfo = "GET "+(string)otherPath+" HTTP/1.1\r\nHost: "+(string)host + "\r\nConnection:Close\r\n\r\n";
+	if(SOCKET_ERROR == send(sock,reqInfo.c_str(),reqInfo.size(),0)){
+      cout << "send error! 错误码： " << WSAGetLastError() << endl;
+		closesocket(sock);
+		return;
+	}
+	cout << "消息发送成功 " << endl;
+
+}
+
+
+//提取网页中的http://的所有URL
+void Getcom(string &allHtml){
+	smatch mat;
+	//href=原本内容，\"是转义字符，"
+	//\s是代表一个空格
+	//regex pattern("href=\"(http://[^\s'\"]+)\"");
+	  regex pattern("href=\"(http://[^\s'\"]+)\"");
+	string::const_iterator start = allHtml.begin();
+	string::const_iterator end = allHtml.end();
+	while(regex_search(start,end,mat,pattern)){
+		string msg(mat[1].first,mat[1].second);
+			comUrl.push_back(msg);
+			start = mat[0].second;
+  	
+	}
+}
+
+
+
+
+//对整个HTML代码进行解析
+void putImagetoSet(){
+
+	int n;
+	char buf[1024];
+	while((n = recv(sock,buf,sizeof(buf)-1,0)) > 0){
+		buf[n] = '\0';
+		allHtml +=string(buf);
+
+	}
+	//接收全部的HTML,全部一一解析
+	//页面中有多少图片
+	GetImage(allHtml);
+   
+
+	//页面中的其他连接全部解析
+	Getcom(allHtml);
+
+}
+
+
+//获取页面中的图片
+
+
+void GetImage(string &allHtml){
+
+	regex pat("src=\"(.*?\.jpg)\"");
+	//从哪里开始找？ 到哪里结束？ 字符串的开始找到字符串的结束
+	string::const_iterator start = allHtml.begin();//迭代器开始
+	string::const_iterator end = allHtml.end();//迭代器结束
+     
+	//开始查找
+	//第一个参数：从哪里开始， 
+	//第二个参数：从哪里结束
+	//第三个参数：读到的数据存放在哪里？
+	//第四个参数：需要找的数据必须满足什么条件
+	smatch mat;//迭代器（计数器）
+	while (regex_search(start, end, mat, pat))     // 搜索正则表达式
+	{
+		string msg(mat[1].first, mat[1].second);
+
+		//把找到的图片地址保存
+		photoUrl.push_back(msg);
+		//得到图片链接之后 重新找第二个位置，所以修改开始位置
+		//画图说明字符串的查找
+		start = mat[0].second;
+	}
+
+
+}
+
+//获取到图片后把图片命名然后保存
+
+void SaveImage(string imageUrl){
+
+	int n;
+	char tmp[800];
+	strcpy(tmp,imageUrl.c_str());
+	analyUrl(tmp); // 仅支持http协议, 解析出主机和IP地址
+	getConnect();  //进行网络连接
+	string photoname;
+	photoname.resize(imageUrl.size());//设置大小
+
+
+	int k = 0;
+	for(int i = 0;i<imageUrl.length();i++){
+
+		char ch = imageUrl[i];
+		if(ch != '\\'&&ch != '/'&&ch != ':'&&ch != '*'&&ch != '?'&&ch != '"'&&ch != '<'&&ch != '>'&&ch != '|')
+			photoname[k++] = ch;
+	}
+
+	photoname = "./img/" + photoname.substr(0, k) + ".jpg";
+
+	fstream file;
+	file.open(photoname,ios::out | ios::binary);
+	char buf[1024];
+	memset(buf,0,sizeof(buf));
+
+	n = recv(sock,buf,sizeof(buf)-1,0);
+
+	char *cpos = strstr(buf,"\r\n\r\n");
+
+	file.write(cpos + strlen("\r\n\r\n"), n - (cpos - buf) - strlen("\r\n\r\n"));
+	while ((n = recv(sock, buf, sizeof(buf)-1, 0)) > 0)
+	{
+		file.write(buf, n);
+	}
+	file.close();
+
+
+
+}
