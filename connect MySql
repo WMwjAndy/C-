@@ -1,0 +1,53 @@
+#include<stdio.h>
+#include<stdlib.h>
+#include"mysql.h"
+#include<string.h>
+#define HOST "localhost"
+#define USER "root"
+#define PASSWORD "000000"
+#define DATABASE "test"
+#define PORT 3306
+MYSQL *t_mysql;
+MYSQL_RES *res_ptr;
+MYSQL_ROW sqlrow;
+
+int main(int argc,char *argv[]){
+	
+	int res;
+	int count;
+	char select[] =  "select * from stu";
+	t_mysql = mysql_init(NULL);
+	if(NULL == t_mysql){
+	fprintf(stderr,"init failed! %d:%s",mysql_errno(t_mysql),mysql_error(t_mysql));
+	}else{
+		if(NULL ==(mysql_real_connect(t_mysql,HOST,USER,PASSWORD,DATABASE,PORT,NULL,0))){
+			fprintf(stderr,"connect failed! %d:%s",mysql_errno(t_mysql),mysql_error(t_mysql));
+		}else{
+			res = mysql_real_query(t_mysql,select,strlen(select));
+			if(!res){
+				res_ptr = mysql_store_result(t_mysql);
+				if(res_ptr){
+					while((sqlrow = mysql_fetch_row(res_ptr))){
+					printf("fetch rows...");
+					for(count = 0;count<mysql_num_fields(res_ptr);
+count++){
+	printf("%d:  %s",count,sqlrow[count]);
+	}
+printf("\n");
+					}
+				}else{
+				
+	fprintf(stderr,"store failed! %d:%s",mysql_errno(t_mysql),mysql_error(t_mysql));
+				}	
+			}else{
+			
+	fprintf(stderr,"query failed! %d:%s",mysql_errno(t_mysql),mysql_error(t_mysql));
+			}
+			
+		}
+	}
+
+
+
+	return 0;
+}
