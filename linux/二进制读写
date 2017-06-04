@@ -1,0 +1,21 @@
+//利用二进制进行文件读写 
+#include<stdio.h>
+#include<stdlib.h>
+#include<string.h>
+#define MAX 100
+int main()
+{
+	FILE *fp;
+	char stream_Buff[MAX];
+	fp=fopen("file_stream.txt","ab+");
+	char arr[]="jadlfjfasdj4132 \r\n 413fas42341 hah\n";//\r\n把换行符写进去 
+	fwrite(arr,1,strlen(arr),fp); 
+	/*fread(&chart,1,1,fp);//一个个的字符读取  读到 显示屏上 
+	     while(!feof(fp))
+  		{
+			printf("%c",chart);
+			fread(&ch,1,1,fp);
+	 	} */
+	system("pause");
+	return 0;
+ } 
