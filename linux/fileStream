@@ -1,0 +1,26 @@
+//文件的读写  fscanf()是从文件中读取数据到程序中。
+// fprintf()是从程序中写到文件中 
+#include<stdio.h>
+#include<stdlib.h>
+#define MAX 100
+int main()
+{
+	FILE *fp,*fp1;
+	char buff[MAX];
+	char readBuff[MAX];
+	char getsBuff[MAX]; 
+	fp=fopen("file.txt","w");
+	fp1=fopen("file1.txt","w");
+	//把文字输入到文件  遇到空格就不读了解决办法：fputs(buff,fp); 
+	fprintf(fp,"This is test the method of fprintf()\n haha"); 
+	fputs("This is test the method of fprintf()\n  haha\n",fp1);//遇到换行符结束 
+    fclose(fp);
+    fclose(fp1);
+    fp=fopen("file.txt","r");
+    fp1=fopen("file1.txt","r");
+    fscanf(fp,"%s",readBuff);//从文件中获取字符 遇到空格就停止 fgets(buff,n,fp);n代表获取n-1个字符 
+    fgets(getsBuff,255-1,fp1);
+	printf("readBuff: %s\n",readBuff);
+	printf("getsBuff:%s",getsBuff);//不能读取换行的 
+	fclose(fp);
+ } 
